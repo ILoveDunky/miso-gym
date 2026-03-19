@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Ultra Dark Moody Theme */
+    --background: 240 30% 2%;
+    --foreground: 240 10% 90%;
+    --card: 240 25% 4%;
+    --card-foreground: 240 10% 90%;
+    --popover: 240 25% 4%;
+    --popover-foreground: 240 10% 90%;
+    --primary: 260 50% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 20% 8%;
+    --secondary-foreground: 240 10% 90%;
+    --muted: 240 20% 8%;
+    --muted-foreground: 240 10% 60%;
+    --accent: 260 40% 10%;
+    --accent-foreground: 260 100% 90%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 20% 8%;
+    --input: 240 20% 8%;
+    --ring: 260 50% 50%;
+    --radius: 1.25rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground selection:bg-primary/30 antialiased;
+  }
+}
+
+.animated-bg {
+  background-size: 400% 400%;
+  @apply animate-gradient-shift;
+}
+
+@keyframes bounce-once {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); opacity: 1; }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-bounce-once {
+  animation: bounce-once 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}

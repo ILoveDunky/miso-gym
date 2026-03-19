@@ -1,0 +1,10 @@
+{
+  "placeholderImages": [
+    {
+      "id": "profile-avatar",
+      "description": "Cute profile picture placeholder",
+      "imageUrl": "https://picsum.photos/seed/miso-avatar/200/200",
+      "imageHint": "cute girl avatar"
+    }
+  ]
+}
