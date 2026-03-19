@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { STANDARD_WORKOUT, LOW_ENERGY_WORKOUT, CORE_WORKOUT, LEG_WORKOUT, ARM_WORKOUT, SHOP_TITLES, CHALLENGES } from '@/lib/constants';
-import { Flame, Sparkles, Trophy, User, Plus, Trash2, Award, Calendar, Star } from 'lucide-react';
+import { Flame, Sparkles, Trophy, User, Plus, Trash2, Award, Calendar, Star, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 type CustomTask = {
@@ -63,6 +63,22 @@ export default function Home() {
   const [lastActiveDate, setLastActiveDate] = useState<string>('');
   const [lastActiveWeekStr, setLastActiveWeekStr] = useState<string>('');
 
+  // Historical Stats for Challenges
+  const [totalWorkoutsLogged, setTotalWorkoutsLogged] = useState(0);
+  const [lowEnergyDaysLogged, setLowEnergyDaysLogged] = useState(0);
+  const [partialWorkoutsLogged, setPartialWorkoutsLogged] = useState(0);
+  const [stepGoalsHit, setStepGoalsHit] = useState(0);
+  const [waterGoalsHit, setWaterGoalsHit] = useState(0);
+  const [coreSessionsLogged, setCoreSessionsLogged] = useState(0);
+  const [legSessionsLogged, setLegSessionsLogged] = useState(0);
+  const [armSessionsLogged, setArmSessionsLogged] = useState(0);
+
+  // Weekly Stats
+  const [weeklyActiveDays, setWeeklyActiveDays] = useState<string[]>([]);
+  const [weeklyCardioSessions, setWeeklyCardioSessions] = useState(0);
+  const [weeklyPlansDone, setWeeklyPlansDone] = useState<string[]>([]);
+  const [weeklyWaterGoalsHit, setWeeklyWaterGoalsHit] = useState(0);
+
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const { toast } = useToast();
@@ -98,6 +114,21 @@ export default function Home() {
       setCompletedAchievements(data.completedAchievements || []);
       setCompletedDaily(data.lastActiveDate === todayStr ? (data.completedDaily || []) : []);
       setCompletedWeekly(data.lastActiveWeekStr === thisWeekStr ? (data.completedWeekly || []) : []);
+      
+      setTotalWorkoutsLogged(data.totalWorkoutsLogged || 0);
+      setLowEnergyDaysLogged(data.lowEnergyDaysLogged || 0);
+      setPartialWorkoutsLogged(data.partialWorkoutsLogged || 0);
+      setStepGoalsHit(data.stepGoalsHit || 0);
+      setWaterGoalsHit(data.waterGoalsHit || 0);
+      setCoreSessionsLogged(data.coreSessionsLogged || 0);
+      setLegSessionsLogged(data.legSessionsLogged || 0);
+      setArmSessionsLogged(data.armSessionsLogged || 0);
+
+      setWeeklyActiveDays(data.lastActiveWeekStr === thisWeekStr ? (data.weeklyActiveDays || []) : []);
+      setWeeklyCardioSessions(data.lastActiveWeekStr === thisWeekStr ? (data.weeklyCardioSessions || 0) : 0);
+      setWeeklyPlansDone(data.lastActiveWeekStr === thisWeekStr ? (data.weeklyPlansDone || []) : []);
+      setWeeklyWaterGoalsHit(data.lastActiveWeekStr === thisWeekStr ? (data.weeklyWaterGoalsHit || 0) : 0);
+
       setLastActiveDate(todayStr);
       setLastActiveWeekStr(thisWeekStr);
     } else {
@@ -112,10 +143,13 @@ export default function Home() {
       localStorage.setItem('miso_gym_v5', JSON.stringify({
         points, streak, completedTasks, waterIntake, waterUnit, isLowEnergy, 
         purchasedTitles, activeTitleId, customPlans, customTasks, activePlan,
-        completedAchievements, completedDaily, completedWeekly, lastActiveDate, lastActiveWeekStr
+        completedAchievements, completedDaily, completedWeekly, lastActiveDate, lastActiveWeekStr,
+        totalWorkoutsLogged, lowEnergyDaysLogged, partialWorkoutsLogged, 
+        stepGoalsHit, waterGoalsHit, coreSessionsLogged, legSessionsLogged, armSessionsLogged,
+        weeklyActiveDays, weeklyCardioSessions, weeklyPlansDone, weeklyWaterGoalsHit
       }));
     }
-  }, [points, streak, completedTasks, waterIntake, waterUnit, isLowEnergy, purchasedTitles, activeTitleId, customPlans, customTasks, activePlan, completedAchievements, completedDaily, completedWeekly, lastActiveDate, lastActiveWeekStr, hasMounted]);
+  }, [points, streak, completedTasks, waterIntake, waterUnit, isLowEnergy, purchasedTitles, activeTitleId, customPlans, customTasks, activePlan, completedAchievements, completedDaily, completedWeekly, lastActiveDate, lastActiveWeekStr, totalWorkoutsLogged, lowEnergyDaysLogged, partialWorkoutsLogged, stepGoalsHit, waterGoalsHit, coreSessionsLogged, legSessionsLogged, armSessionsLogged, weeklyActiveDays, weeklyCardioSessions, weeklyPlansDone, weeklyWaterGoalsHit, hasMounted]);
 
   const PLAN_MAP: Record<string, any[]> = {
     full_body: STANDARD_WORKOUT,
@@ -179,9 +213,42 @@ export default function Home() {
   const finishDay = () => {
     let bonus = isLowEnergy ? 15 : 30;
     const newStreak = streak + 1;
+    const todayDate = new Date().toDateString();
     
     if (newStreak % 7 === 0) bonus += 75;
     else if (newStreak % 3 === 0) bonus += 25;
+
+    // Challenge Stats Updates
+    setTotalWorkoutsLogged(prev => prev + 1);
+    if (isLowEnergy) setLowEnergyDaysLogged(prev => prev + 1);
+    if (completionPercentage < 100) setPartialWorkoutsLogged(prev => prev + 1);
+    
+    const stepTask = activeTasks.find(t => t.label.includes('8k') || t.label.includes('steps'));
+    if (stepTask && completedTasks.includes(stepTask.id)) setStepGoalsHit(prev => prev + 1);
+    
+    const waterGoalMet = waterUnit === 'L' ? waterIntake >= 2 : waterIntake >= 67;
+    if (waterGoalMet) {
+      setWaterGoalsHit(prev => prev + 1);
+      setWeeklyWaterGoalsHit(prev => prev + 1);
+    }
+
+    if (activePlan === 'core') setCoreSessionsLogged(prev => prev + 1);
+    if (activePlan === 'legs') setLegSessionsLogged(prev => prev + 1);
+    if (activePlan === 'arms') setArmSessionsLogged(prev => prev + 1);
+
+    if (!weeklyActiveDays.includes(todayDate)) {
+      setWeeklyActiveDays(prev => [...prev, todayDate]);
+    }
+
+    const hasCardio = completedTasks.some(tid => {
+        const t = activeTasks.find(at => at.id === tid);
+        return t?.category === 'cardio';
+    });
+    if (hasCardio) setWeeklyCardioSessions(prev => prev + 1);
+
+    if (!weeklyPlansDone.includes(activePlan)) {
+      setWeeklyPlansDone(prev => [...prev, activePlan]);
+    }
 
     setPoints(p => p + bonus);
     setStreak(newStreak);
@@ -204,6 +271,74 @@ export default function Home() {
     } else {
       setPoints(p => p - cost);
     }
+  };
+
+  const isChallengeEligible = (id: string, type: 'daily' | 'weekly' | 'achievements') => {
+    const waterGoalMet = waterUnit === 'L' ? waterIntake >= 2 : waterIntake >= 67;
+    const hasCardio = completedTasks.some(tid => activeTasks.find(at => at.id === tid)?.category === 'cardio');
+    const hasStretch = completedTasks.some(tid => {
+        const t = activeTasks.find(at => at.id === tid);
+        return t?.label.toLowerCase().includes('stretch') || (t?.category === 'habits' && t?.points === 5);
+    });
+    const hasFuel = completedTasks.some(tid => activeTasks.find(at => at.id === tid)?.label.toLowerCase().includes('nourishing'));
+    const stepTask = activeTasks.find(t => t.label.includes('8k') || t.label.includes('steps'));
+    const hasSteps = stepTask && completedTasks.includes(stepTask.id);
+
+    if (type === 'daily') {
+      switch (id) {
+        case 'd_show_up': return completedTasks.length > 0;
+        case 'd_move': {
+            const totalDuration = completedTasks.reduce((sum, tid) => {
+                const t = activeTasks.find(at => at.id === tid);
+                return sum + (t?.points || 0); // approx points as duration for simple tasks
+            }, 0);
+            return totalDuration >= 10;
+        }
+        case 'd_cardio': return hasCardio;
+        case 'd_hydrate': return waterGoalMet;
+        case 'd_stretch': return hasStretch;
+        case 'd_fuel': return hasFuel;
+        case 'd_step': return hasSteps;
+        case 'd_low': return isLowEnergy && completedTasks.length > 0;
+        case 'd_all': return completionPercentage === 100;
+        default: return false;
+      }
+    }
+
+    if (type === 'weekly') {
+      switch (id) {
+        case 'w_3day': return weeklyActiveDays.length >= 3;
+        case 'w_half': return weeklyActiveDays.length >= 4;
+        case 'w_warrior': return weeklyActiveDays.length >= 5;
+        case 'w_cardiolover': return weeklyCardioSessions >= 3;
+        case 'w_balanced': return weeklyPlansDone.includes('core') && weeklyPlansDone.includes('legs') && weeklyPlansDone.includes('arms');
+        case 'w_hydrate': return weeklyWaterGoalsHit >= 4;
+        default: return false;
+      }
+    }
+
+    if (type === 'achievements') {
+      switch (id) {
+        case 'a_getin': return totalWorkoutsLogged >= 5;
+        case 'a_routine': return totalWorkoutsLogged >= 10;
+        case 'a_streak3': return streak >= 3;
+        case 'a_streak7': return streak >= 7;
+        case 'a_streak14': return streak >= 14;
+        case 'a_streak30': return streak >= 30;
+        case 'a_nevergive': return lowEnergyDaysLogged >= 5;
+        case 'a_try': return partialWorkoutsLogged >= 20;
+        case 'a_step10': return stepGoalsHit >= 10;
+        case 'a_water10': return waterGoalsHit >= 10;
+        case 'a_core10': return coreSessionsLogged >= 10;
+        case 'a_leg10': return legSessionsLogged >= 10;
+        case 'a_arm10': return armSessionsLogged >= 10;
+        case 'a_100': return totalWorkoutsLogged >= 100;
+        case 'a_king': return totalWorkoutsLogged >= 60; // Approximate active days as logged workouts
+        case 'a_life': return totalWorkoutsLogged >= 90;
+        default: return false;
+      }
+    }
+    return false;
   };
 
   const createPlan = () => {
@@ -251,6 +386,10 @@ export default function Home() {
   };
 
   const claimChallenge = (id: string, pointsVal: number, type: 'daily' | 'weekly' | 'achievements') => {
+    if (!isChallengeEligible(id, type)) {
+      toast({ title: "Locked! 🔒", description: "You haven't met the requirements for this challenge yet.", variant: "destructive" });
+      return;
+    }
     setPoints(p => p + pointsVal);
     toast({ title: "Claimed! 🏆", description: `+${pointsVal} points awarded!`, duration: 2000 });
     if (type === 'daily') setCompletedDaily(p => [...p, id]);
@@ -589,68 +728,101 @@ export default function Home() {
             </div>
 
             <div className="space-y-4">
-              {challengeTab === 'daily' && CHALLENGES.daily.map(c => (
-                <Card key={c.id} className={`border-none ${completedDaily.includes(c.id) ? 'bg-primary/5 opacity-60' : 'bg-card/40 hover:bg-card/60'} backdrop-blur-md transition-all shadow-md group relative overflow-hidden`}>
-                  <div className="absolute top-0 left-0 w-1 h-full bg-[#FFB020]/80"></div>
-                  <div className="flex items-center justify-between p-4">
-                    <div className="pl-2">
-                       <h3 className={`font-black text-sm ${completedDaily.includes(c.id) ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{c.name}</h3>
-                       <p className="text-xs text-muted-foreground font-medium">{c.description}</p>
+              {challengeTab === 'daily' && CHALLENGES.daily.map(c => {
+                const eligible = isChallengeEligible(c.id, 'daily');
+                const claimed = completedDaily.includes(c.id);
+                return (
+                  <Card key={c.id} className={`border-none ${claimed ? 'bg-primary/5 opacity-60' : eligible ? 'bg-card/70 border-2 border-[#FFB020]/50 shadow-lg' : 'bg-card/40 opacity-70'} backdrop-blur-md transition-all shadow-md group relative overflow-hidden`}>
+                    <div className={`absolute top-0 left-0 w-1 h-full ${eligible ? 'bg-[#FFB020]' : 'bg-muted/30'}`}></div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="pl-2">
+                         <div className="flex items-center gap-1.5">
+                           <h3 className={`font-black text-sm ${claimed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{c.name}</h3>
+                           {!eligible && !claimed && <Lock className="w-3 h-3 text-muted-foreground/50" />}
+                         </div>
+                         <p className="text-xs text-muted-foreground font-medium">{c.description}</p>
+                      </div>
+                      {claimed ? (
+                         <Badge variant="secondary" className="bg-primary/20 text-primary font-bold">Claimed</Badge>
+                      ) : (
+                         <Button 
+                            onClick={() => claimChallenge(c.id, c.points, 'daily')} 
+                            disabled={!eligible}
+                            className={`h-8 px-3 rounded-full font-black text-xs gap-1 border shadow-sm transition-all ${eligible ? 'bg-[#FFB020] text-black hover:bg-[#FFB020]/80 border-[#FFB020]/30' : 'bg-muted/10 text-muted-foreground border-white/5 opacity-50'}`}
+                         >
+                           {eligible ? 'Claim!' : 'Locked'} +{c.points}
+                         </Button>
+                      )}
                     </div>
-                    {completedDaily.includes(c.id) ? (
-                       <Badge variant="secondary" className="bg-primary/20 text-primary font-bold">Claimed</Badge>
-                    ) : (
-                       <Button onClick={() => claimChallenge(c.id, c.points, 'daily')} className="h-8 px-3 rounded-full bg-[#FFB020]/20 text-[#FFB020] hover:bg-[#FFB020]/40 font-black text-xs gap-1 border border-[#FFB020]/30 shadow-sm">
-                         Claim +{c.points}
-                       </Button>
-                    )}
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
 
-              {challengeTab === 'weekly' && CHALLENGES.weekly.map(c => (
-                <Card key={c.id} className={`border-none ${completedWeekly.includes(c.id) ? 'bg-primary/5 opacity-60' : 'bg-card/40 hover:bg-card/60'} backdrop-blur-md transition-all shadow-md group relative overflow-hidden`}>
-                  <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/80"></div>
-                  <div className="flex items-center justify-between p-4">
-                    <div className="pl-2">
-                       <h3 className={`font-black text-sm ${completedWeekly.includes(c.id) ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{c.name}</h3>
-                       <p className="text-xs text-muted-foreground font-medium">{c.description}</p>
+              {challengeTab === 'weekly' && CHALLENGES.weekly.map(c => {
+                const eligible = isChallengeEligible(c.id, 'weekly');
+                const claimed = completedWeekly.includes(c.id);
+                return (
+                  <Card key={c.id} className={`border-none ${claimed ? 'bg-primary/5 opacity-60' : eligible ? 'bg-card/70 border-2 border-blue-500/50 shadow-lg' : 'bg-card/40 opacity-70'} backdrop-blur-md transition-all shadow-md group relative overflow-hidden`}>
+                    <div className={`absolute top-0 left-0 w-1 h-full ${eligible ? 'bg-blue-500' : 'bg-muted/30'}`}></div>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="pl-2">
+                         <div className="flex items-center gap-1.5">
+                           <h3 className={`font-black text-sm ${claimed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{c.name}</h3>
+                           {!eligible && !claimed && <Lock className="w-3 h-3 text-muted-foreground/50" />}
+                         </div>
+                         <p className="text-xs text-muted-foreground font-medium">{c.description}</p>
+                      </div>
+                      {claimed ? (
+                         <Badge variant="secondary" className="bg-primary/20 text-primary font-bold">Claimed</Badge>
+                      ) : (
+                         <Button 
+                            onClick={() => claimChallenge(c.id, c.points, 'weekly')} 
+                            disabled={!eligible}
+                            className={`h-8 px-3 rounded-full font-black text-xs gap-1 border shadow-sm transition-all ${eligible ? 'bg-blue-500 text-white hover:bg-blue-600 border-blue-400/30' : 'bg-muted/10 text-muted-foreground border-white/5 opacity-50'}`}
+                         >
+                           {eligible ? 'Claim!' : 'Locked'} +{c.points}
+                         </Button>
+                      )}
                     </div>
-                    {completedWeekly.includes(c.id) ? (
-                       <Badge variant="secondary" className="bg-primary/20 text-primary font-bold">Claimed</Badge>
-                    ) : (
-                       <Button onClick={() => claimChallenge(c.id, c.points, 'weekly')} className="h-8 px-3 rounded-full bg-blue-500/20 text-blue-400 hover:bg-blue-500/40 font-black text-xs gap-1 border border-blue-500/30 shadow-sm">
-                         Claim +{c.points}
-                       </Button>
-                    )}
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
 
               {challengeTab === 'achievements' && CHALLENGES.achievements.map((cat, i) => (
                 <div key={i} className="pt-2">
                   <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3 px-2">{cat.category}</h2>
                   <div className="space-y-3">
-                    {cat.group.map(c => (
-                      <Card key={c.id} className={`border-none ${completedAchievements.includes(c.id) ? 'bg-primary/10 border border-primary/20' : 'bg-card/30'} backdrop-blur-md shadow-md overflow-hidden relative`}>
-                        {completedAchievements.includes(c.id) && <div className="absolute inset-0 bg-primary/5"></div>}
-                        <div className="flex items-center justify-between p-4 relative z-10">
-                          <div>
-                             <h3 className={`font-black text-sm flex items-center gap-1.5 ${completedAchievements.includes(c.id) ? 'text-primary' : 'text-foreground'}`}>
-                               {completedAchievements.includes(c.id) && <Trophy className="w-3.5 h-3.5" />} {c.name}
-                             </h3>
-                             <p className="text-xs text-muted-foreground font-medium mt-0.5">{c.description}</p>
+                    {cat.group.map(c => {
+                      const eligible = isChallengeEligible(c.id, 'achievements');
+                      const claimed = completedAchievements.includes(c.id);
+                      return (
+                        <Card key={c.id} className={`border-none ${claimed ? 'bg-primary/10 border border-primary/20' : eligible ? 'bg-card/80 border-2 border-primary/30 shadow-xl' : 'bg-card/30 opacity-70'} backdrop-blur-md shadow-md overflow-hidden relative transition-all`}>
+                          {claimed && <div className="absolute inset-0 bg-primary/5"></div>}
+                          <div className="flex items-center justify-between p-4 relative z-10">
+                            <div>
+                               <div className="flex items-center gap-1.5">
+                                 <h3 className={`font-black text-sm flex items-center gap-1.5 ${claimed || eligible ? 'text-primary' : 'text-foreground'}`}>
+                                   {(claimed || eligible) && <Trophy className="w-3.5 h-3.5" />} {c.name}
+                                 </h3>
+                                 {!eligible && !claimed && <Lock className="w-3 h-3 text-muted-foreground/50" />}
+                               </div>
+                               <p className="text-xs text-muted-foreground font-medium mt-0.5">{c.description}</p>
+                            </div>
+                            {claimed ? (
+                               <Badge className="bg-primary/20 hover:bg-primary/20 border border-primary text-primary font-bold ml-4">COMPLETED</Badge>
+                            ) : (
+                               <Button 
+                                  onClick={() => claimChallenge(c.id, c.points, 'achievements')} 
+                                  disabled={!eligible}
+                                  className={`h-8 px-3 ml-4 shrink-0 rounded-full font-black text-xs transition-all ${eligible ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-xl shadow-primary/20' : 'bg-white/5 text-muted-foreground'}`}
+                               >
+                                 {eligible ? 'Claim!' : 'Locked'} +{c.points}
+                               </Button>
+                            )}
                           </div>
-                          {completedAchievements.includes(c.id) ? (
-                             <Badge className="bg-primary/20 hover:bg-primary/20 border border-primary text-primary font-bold ml-4">COMPLETED</Badge>
-                          ) : (
-                             <Button onClick={() => claimChallenge(c.id, c.points, 'achievements')} className="h-8 px-3 ml-4 shrink-0 rounded-full font-black text-xs bg-white text-black hover:bg-gray-200 shadow-xl shadow-white/5">
-                               Claim +{c.points}
-                             </Button>
-                          )}
-                        </div>
-                      </Card>
-                    ))}
+                        </Card>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
