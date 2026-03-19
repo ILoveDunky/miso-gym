@@ -16,13 +16,13 @@ interface PointsShopProps {
 }
 
 export const PointsShop: React.FC<PointsShopProps> = ({ points, onPurchase, purchasedTitles, activeTitle }) => {
-  const [showScreenshotAlert, setShowScreenshotAlert] = useState(false);
+  const [activeAlertReward, setActiveAlertReward] = useState<any | null>(null);
 
   const handlePurchase = (item: any, type: 'reward' | 'title') => {
     if (points >= item.cost) {
       onPurchase(item.cost, item.id, type);
-      if (item.needsScreenshot) {
-        setShowScreenshotAlert(true);
+      if (item.needsScreenshot || item.id === 'nap') {
+        setActiveAlertReward(item);
       }
     }
   };
@@ -113,12 +113,18 @@ export const PointsShop: React.FC<PointsShopProps> = ({ points, onPurchase, purc
         </Tabs>
       </CardContent>
 
-      <AlertDialog open={showScreenshotAlert} onOpenChange={setShowScreenshotAlert}>
+      <AlertDialog open={!!activeAlertReward} onOpenChange={(open) => !open && setActiveAlertReward(null)}>
         <AlertDialogContent className="rounded-3xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>📸 Screenshot Time!</AlertDialogTitle>
+            <AlertDialogTitle>
+              {activeAlertReward?.id === 'nap' ? '😴 Nap Time!' : '📸 Screenshot Time!'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Screenshot this and text it to me to claim your silly selfie! I'm waiting! 💜
+              {activeAlertReward?.id === 'nap' 
+                ? "You've earned a nap! Go rest your beautiful eyes. 😴" 
+                : activeAlertReward?.id === 'silly_video'
+                ? "Screenshot this and text it to me for your silly video! 🤪"
+                : "Screenshot this and text it to me to claim your silly selfie! I'm waiting! 💜"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

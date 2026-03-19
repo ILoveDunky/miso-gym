@@ -17,12 +17,10 @@ import { STANDARD_WORKOUT, LOW_ENERGY_WORKOUT, CORE_WORKOUT, LEG_WORKOUT, ARM_WO
 import { Flame, Sparkles, Trophy, User, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-type CustomWorkout = {
+type CustomTask = {
   id: string;
-  name: string;
-  description: string;
-  type: string;
-  duration: number;
+  label: string;
+  category: string;
   points: number;
 };
 
@@ -38,12 +36,11 @@ export default function Home() {
   const [activeTitleId, setActiveTitleId] = useState<string>('');
   
   const [activePlan, setActivePlan] = useState<'full_body'|'core'|'legs'|'arms'|'custom'>('full_body');
-  const [customWorkouts, setCustomWorkouts] = useState<CustomWorkout[]>([]);
+  const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
   
   // Custom workout form state
   const [cwName, setCwName] = useState('');
-  const [cwDesc, setCwDesc] = useState('');
-  const [cwType, setCwType] = useState('Cardio');
+  const [cwCategory, setCwCategory] = useState('warmup');
   const [cwDuration, setCwDuration] = useState(10);
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -62,7 +59,13 @@ export default function Home() {
       setIsLowEnergy(data.isLowEnergy || false);
       setPurchasedTitles(data.purchasedTitles || []);
       setActiveTitleId(data.activeTitleId || '');
-      setCustomWorkouts(data.customWorkouts || []);
+      // Migration from old to new customWorkouts -> customTasks if needed
+      setCustomTasks(data.customTasks || (data.customWorkouts ? data.customWorkouts.map((cw: any) => ({
+        id: cw.id,
+        label: cw.name,
+        category: cw.type === 'Cardio' ? 'cardio' : cw.type === 'Warm Up' ? 'warmup' : cw.type === 'Arms' ? 'arms' : cw.type === 'Legs' ? 'toning' : cw.type === 'Core' ? 'toning' : 'habits',
+        points: cw.points
+      })) : []));
       if (data.activePlan) setActivePlan(data.activePlan);
     }
     setHasMounted(true);
@@ -71,10 +74,10 @@ export default function Home() {
   useEffect(() => {
     if (hasMounted) {
       localStorage.setItem('miso_gym_v4', JSON.stringify({
-        points, streak, completedTasks, waterIntake, waterUnit, isLowEnergy, purchasedTitles, activeTitleId, customWorkouts, activePlan
+        points, streak, completedTasks, waterIntake, waterUnit, isLowEnergy, purchasedTitles, activeTitleId, customTasks, activePlan
       }));
     }
-  }, [points, streak, completedTasks, waterIntake, waterUnit, isLowEnergy, purchasedTitles, activeTitleId, customWorkouts, activePlan, hasMounted]);
+  }, [points, streak, completedTasks, waterIntake, waterUnit, isLowEnergy, purchasedTitles, activeTitleId, customTasks, activePlan, hasMounted]);
 
   const PLAN_MAP: Record<string, any[]> = {
     full_body: STANDARD_WORKOUT,
@@ -84,17 +87,15 @@ export default function Home() {
   };
 
   const activeTasks = activePlan === 'custom' 
-    ? [] 
+    ? customTasks 
     : (isLowEnergy ? LOW_ENERGY_WORKOUT : PLAN_MAP[activePlan] || STANDARD_WORKOUT);
     
   const activeTitle = SHOP_TITLES.find(t => t.id === activeTitleId)?.name || 'Consistency Queen';
   
-  const completionPercentage = activePlan === 'custom' 
-    ? (completedTasks.filter(t => t.startsWith('cw_')).length > 0 ? 100 : 0) // rough estimation for custom
-    : (completedTasks.length / activeTasks.length) * 100;
+  const completionPercentage = activeTasks.length > 0 ? (completedTasks.filter(id => activeTasks.some(t => t.id === id)).length / activeTasks.length) * 100 : 0;
   
   const canFinish = activePlan === 'custom' 
-    ? completedTasks.some(t => t.startsWith('cw_'))
+    ? (customTasks.length > 0 && completionPercentage > 0)
     : completionPercentage >= 50;
 
   const toggleTask = (id: string, taskPoints: number) => {
@@ -105,11 +106,11 @@ export default function Home() {
 
     if (isCustom) {
       const currentCompletedCustom = completedTasks.filter(t => t.startsWith('cw_'));
-      const currentRawCustom = currentCompletedCustom.reduce((sum, tid) => sum + (customWorkouts.find(w => w.id === tid)?.points || 0), 0);
+      const currentRawCustom = currentCompletedCustom.reduce((sum, tid) => sum + (customTasks.find(w => w.id === tid)?.points || 0), 0);
       const currentAllowed = Math.min(currentRawCustom, 120);
 
       const newCompletedCustom = isAdding ? [...currentCompletedCustom, id] : currentCompletedCustom.filter(t => t !== id);
-      const newRawCustom = newCompletedCustom.reduce((sum, tid) => sum + (customWorkouts.find(w => w.id === tid)?.points || 0), 0);
+      const newRawCustom = newCompletedCustom.reduce((sum, tid) => sum + (customTasks.find(w => w.id === tid)?.points || 0), 0);
       const newAllowed = Math.min(newRawCustom, 120);
 
       actualPointsAdded = newAllowed - currentAllowed;
@@ -165,32 +166,39 @@ export default function Home() {
     }
   };
 
-  const createCustomWorkout = () => {
-    if (!cwName.trim()) return toast({title: "Oops!", description: "Please enter a name for your custom workout.", variant: "destructive"});
-    const pointsMap: Record<number, number> = { 10: 10, 20: 20, 30: 30, 45: 45 };
-    const newCw: CustomWorkout = {
+  const createCustomTask = () => {
+    if (!cwName.trim()) return toast({title: "Oops!", description: "Please enter a name for your custom exercise.", variant: "destructive"});
+    
+    const newCw: CustomTask = {
       id: `cw_${Date.now()}`,
-      name: cwName.trim(),
-      description: cwDesc.trim(),
-      type: cwType,
-      duration: cwDuration,
-      points: pointsMap[cwDuration] || 10,
+      label: cwName.trim(),
+      category: cwCategory,
+      points: cwDuration, // 1 min = 1 point
     };
-    setCustomWorkouts(prev => [...prev, newCw]);
+    
+    setCustomTasks(prev => [...prev, newCw]);
     setCwName('');
-    setCwDesc('');
-    toast({ title: "Saved! ✨", description: `Added ${newCw.name} to your custom workouts.`});
+    toast({ title: "Saved! ✨", description: `Added ${newCw.label} to your custom plan.`});
   };
 
-  const deleteCustomWorkout = (id: string, e?: React.MouseEvent) => {
+  const deleteCustomTask = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setCustomWorkouts(prev => prev.filter(w => w.id !== id));
+    setCustomTasks(prev => prev.filter(w => w.id !== id));
     if (completedTasks.includes(id)) {
-      toggleTask(id, customWorkouts.find(w => w.id === id)?.points || 0);
+      toggleTask(id, customTasks.find(w => w.id === id)?.points || 0);
     }
   };
 
   if (!hasMounted) return null;
+
+  const categories = ['warmup', 'cardio', 'toning', 'arms', 'habits'];
+  const titles: Record<string, string> = {
+    warmup: '🟣 Warm Up',
+    cardio: '🔥 Cardio',
+    toning: '🏋️‍♀️ Toning / Core / Legs',
+    arms: '💪 Arms',
+    habits: '🌿 Habits'
+  };
 
   return (
     <div className="min-h-screen pb-24">
@@ -285,164 +293,112 @@ export default function Home() {
         )}
 
         {/* Workout Sections */}
-        {activePlan !== 'custom' ? (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-            {['warmup', 'cardio', 'toning', 'arms', 'habits'].map((cat) => {
-              const catTasks = activeTasks.filter(t => t.category === cat);
-              if (catTasks.length === 0) return null;
-              
-              const titles: Record<string, string> = {
-                warmup: '🟣 Warm Up',
-                cardio: '🔥 Cardio',
-                toning: '🏋️‍♀️ Toning / Core / Legs',
-                arms: '💪 Arms',
-                habits: '🌿 Habits'
-              };
-              
-              return (
-                <Card key={cat} className="border-none shadow-xl bg-card/40 backdrop-blur-md overflow-hidden">
-                  <CardHeader className="py-4 px-5 bg-primary/5 border-b border-white/5">
-                    <CardTitle className="text-sm font-black uppercase tracking-[0.15em]">{titles[cat]}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-2 space-y-1">
-                    {catTasks.map(task => (
-                      <div 
-                        key={task.id} 
-                        onClick={() => toggleTask(task.id, task.points)}
-                        className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all duration-300 ${completedTasks.includes(task.id) ? 'bg-primary/5 opacity-50' : 'bg-white/5 hover:bg-white/10'}`}
-                      >
-                        <Checkbox 
-                          id={task.id} 
-                          checked={completedTasks.includes(task.id)} 
-                          className="w-6 h-6 rounded-lg pointer-events-none"
-                        />
-                        <div className="flex-1">
-                          <p className={`text-sm font-bold leading-tight ${completedTasks.includes(task.id) ? 'line-through text-muted-foreground' : ''}`}>
-                            {task.label}
-                          </p>
-                        </div>
-                        <Badge variant="secondary" className="bg-background/50 text-[10px] font-black shrink-0 px-2 py-0.5 border-none">
-                          +{task.points}
-                        </Badge>
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+          {categories.map((cat) => {
+            const catTasks = activeTasks.filter(t => t.category === cat);
+            if (activePlan !== 'custom' && catTasks.length === 0) return null;
+            
+            // If in Custom Mode, show all categories (or just those with tasks), but let's show all so they see the structure!
+            if (activePlan === 'custom' && catTasks.length === 0) return null; // Wait, let's only render them if they have tasks to avoid clutter.
+            
+            return (
+              <Card key={cat} className="border-none shadow-xl bg-card/40 backdrop-blur-md overflow-hidden relative group">
+                <CardHeader className="py-4 px-5 bg-primary/5 border-b border-white/5">
+                  <CardTitle className="text-sm font-black uppercase tracking-[0.15em]">{titles[cat]}</CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 space-y-1">
+                  {catTasks.map(task => (
+                    <div 
+                      key={task.id} 
+                      onClick={() => toggleTask(task.id, task.points)}
+                      className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all duration-300 relative group/task ${completedTasks.includes(task.id) ? 'bg-primary/5 opacity-50' : 'bg-white/5 hover:bg-white/10'}`}
+                    >
+                      <Checkbox 
+                        id={task.id} 
+                        checked={completedTasks.includes(task.id)} 
+                        className="w-6 h-6 rounded-lg pointer-events-none"
+                      />
+                      <div className="flex-1">
+                        <p className={`text-sm font-bold leading-tight ${completedTasks.includes(task.id) ? 'line-through text-muted-foreground' : ''}`}>
+                          {task.label}
+                        </p>
                       </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-            {/* Custom Builder */}
+                      <Badge variant="secondary" className="bg-background/50 text-[10px] font-black shrink-0 px-2 py-0.5 border-none text-yellow-500">
+                        +{task.points}
+                      </Badge>
+                      {activePlan === 'custom' && (
+                        <button 
+                          onClick={(e) => deleteCustomTask(task.id, e)}
+                          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 bg-destructive text-destructive-foreground p-1.5 rounded-full shadow-lg opacity-0 group-hover/task:opacity-100 transition-opacity bg-red-500 hover:bg-red-600"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {activePlan === 'custom' && (
+          <div className="pt-6 animate-in fade-in slide-in-from-bottom-2">
             <Card className="border-none shadow-xl bg-card/40 backdrop-blur-md overflow-hidden">
                <CardHeader className="py-4 px-5 bg-primary/20 border-b border-primary/20">
                  <CardTitle className="text-sm font-black flex items-center gap-2">
-                   <Plus className="w-4 h-4" /> CREATE CUSTOM WORKOUT
+                   <Plus className="w-4 h-4" /> ADD CUSTOM EXERCISE
                  </CardTitle>
                </CardHeader>
                <CardContent className="p-5 space-y-4">
                  <div className="space-y-1">
-                   <Label className="text-xs font-bold text-muted-foreground uppercase opacity-80">Name</Label>
+                   <Label className="text-xs font-bold text-muted-foreground uppercase opacity-80">Exercise Name</Label>
                    <Input 
-                     placeholder="e.g. Zumba Dance Class" 
+                     placeholder="e.g. Jumping Jacks" 
                      value={cwName} 
                      onChange={e => setCwName(e.target.value)} 
-                     className="bg-background/50 border-white/10 h-10"
-                   />
-                 </div>
-                 <div className="space-y-1">
-                   <Label className="text-xs font-bold text-muted-foreground uppercase opacity-80">Description</Label>
-                   <Input 
-                     placeholder="Short focus/goal..." 
-                     value={cwDesc} 
-                     onChange={e => setCwDesc(e.target.value)} 
                      className="bg-background/50 border-white/10 h-10"
                    />
                  </div>
                  
                  <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-1">
-                     <Label className="text-xs font-bold text-muted-foreground uppercase opacity-80">Type</Label>
+                     <Label className="text-xs font-bold text-muted-foreground uppercase opacity-80">Category</Label>
                      <select 
-                       value={cwType} 
-                       onChange={e => setCwType(e.target.value)}
+                       value={cwCategory} 
+                       onChange={e => setCwCategory(e.target.value)}
                        className="w-full h-10 px-3 rounded-md bg-background/50 border border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary flex h-10 w-full rounded-md border text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                      >
-                       <option>Cardio</option>
-                       <option>Core</option>
-                       <option>Legs</option>
-                       <option>Arms</option>
-                       <option>Full Body</option>
-                       <option>Custom</option>
+                       <option value="warmup">Warm Up</option>
+                       <option value="cardio">Cardio</option>
+                       <option value="toning">Toning / Core / Legs</option>
+                       <option value="arms">Arms</option>
+                       <option value="habits">Habits</option>
                      </select>
                    </div>
                    <div className="space-y-1">
-                     <Label className="text-xs font-bold text-muted-foreground uppercase opacity-80">Duration</Label>
+                     <Label className="text-xs font-bold text-muted-foreground uppercase opacity-80">Time Spent</Label>
                      <select 
                        value={cwDuration} 
                        onChange={e => setCwDuration(Number(e.target.value))}
                        className="w-full h-10 px-3 rounded-md bg-background/50 border border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary flex h-10 w-full rounded-md border text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                      >
-                       <option value={10}>10 min (+10)</option>
-                       <option value={20}>20 min (+20)</option>
-                       <option value={30}>30 min (+30)</option>
-                       <option value={45}>45+ min (+45)</option>
+                       <option value={5}>5 mins (+5)</option>
+                       <option value={10}>10 mins (+10)</option>
+                       <option value={15}>15 mins (+15)</option>
+                       <option value={20}>20 mins (+20)</option>
+                       <option value={30}>30 mins (+30)</option>
+                       <option value={45}>45 mins (+45)</option>
+                       <option value={60}>60 mins (+60)</option>
                      </select>
                    </div>
                  </div>
 
-                 <Button onClick={createCustomWorkout} className="w-full font-black tracking-widest mt-2 h-12 rounded-xl">
-                   SAVE WORKOUT
+                 <Button onClick={createCustomTask} className="w-full font-black tracking-widest mt-2 h-12 rounded-xl">
+                   ADD TO CUSTOM PLAN
                  </Button>
                </CardContent>
             </Card>
-
-            {/* Saved Custom Workouts */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-black tracking-[0.2em] text-muted-foreground pl-2 uppercase">Your Saved Workouts</h3>
-              {customWorkouts.length === 0 && (
-                <div className="text-center p-8 bg-card/20 rounded-3xl border border-white/5 border-dashed">
-                  <p className="text-sm font-bold text-muted-foreground opacity-50">No custom workouts saved yet.</p>
-                </div>
-              )}
-              {customWorkouts.map(cw => (
-                <div key={cw.id} className="relative group">
-                  <Card 
-                    className={`border-none shadow-md backdrop-blur-md overflow-hidden cursor-pointer transition-all duration-300 ${
-                      completedTasks.includes(cw.id) ? 'bg-primary/10 opacity-60' : 'bg-card/40 hover:bg-card/60'
-                    }`}
-                    onClick={() => toggleTask(cw.id, cw.points)}
-                  >
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <Checkbox 
-                        checked={completedTasks.includes(cw.id)} 
-                        className="w-6 h-6 rounded-lg pointer-events-none"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 uppercase bg-white/5 border-white/10">{cw.type}</Badge>
-                          <Badge variant="secondary" className="bg-primary/20 text-primary text-[9px] font-black border-none px-1.5 py-0">{cw.duration}m</Badge>
-                        </div>
-                        <h4 className={`text-base font-black leading-tight ${completedTasks.includes(cw.id) ? 'line-through text-muted-foreground' : ''}`}>{cw.name}</h4>
-                        {cw.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5">{cw.description}</p>
-                        )}
-                      </div>
-                      <Badge variant="secondary" className="bg-background/50 text-xs font-black shrink-0 px-3 py-1 border-none text-yellow-400">
-                        +{cw.points}
-                      </Badge>
-                    </CardContent>
-                  </Card>
-                  {/* Delete Button */}
-                  <button 
-                    onClick={(e) => deleteCustomWorkout(cw.id, e)}
-                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground p-2 rounded-full shadow-lg opacity-0 lg:opacity-100 lg:scale-100 transition-opacity translate-y-2 group-hover:translate-y-0 opacity-100 bg-red-500 hover:bg-red-600"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -480,7 +436,7 @@ export default function Home() {
           {!canFinish && (
             <p className="text-[10px] text-center text-muted-foreground font-bold uppercase tracking-widest opacity-60">
               {activePlan === 'custom' 
-                ? 'Complete at least 1 custom workout to finish'
+                ? 'Complete at least 1 custom exercise to finish'
                 : `Complete ${Math.ceil(activeTasks.length * 0.5)} tasks to finish (50%)`}
             </p>
           )}
@@ -493,7 +449,7 @@ export default function Home() {
             <div className="text-7xl mb-6">👑</div>
             <h2 className="text-3xl font-black mb-3 tracking-tighter uppercase">AMAZING JOB!</h2>
             <p className="text-muted-foreground font-medium mb-8 leading-relaxed">
-              You crushed it. One step closer to your goals. Now go rest, princess! 💜
+              You crushed it. One step closer to your goals. Now go rest, princess! I love you! 💜
             </p>
             <Button 
               onClick={() => setShowSuccessModal(false)} 
