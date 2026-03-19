@@ -65,19 +65,72 @@ export const LOW_ENERGY_WORKOUT: Task[] = [
 ];
 
 export const SHOP_REWARDS = [
-  { id: 'overwatch', name: 'One more game', description: 'Force me to stay on Overwatch for one more game!', cost: 100, icon: '🎮' },
-  { id: 'selfie', name: 'Silly selfie', description: 'I will send you a silly selfie whenever you want!', cost: 300, icon: '📸', needsScreenshot: true },
-  { id: 'silly_video', name: 'Silly video', description: 'Send a silly video!', cost: 400, icon: '🤪', needsScreenshot: true },
-  { id: 'nap', name: 'Nap pass', description: 'Take a nap at any point today, no questions asked.', cost: 500, icon: '😴' },
+  { id: 'overwatch', name: 'One more game', description: 'Force me to stay on Overwatch for one more game!', cost: 150, icon: '🎮' },
+  { id: 'selfie', name: 'Silly selfie', description: 'I will send you a silly selfie whenever you want!', cost: 400, icon: '📸', needsScreenshot: true },
+  { id: 'cringe', name: 'Cringe Text', description: 'I send something intentionally cringe to whoever or wherever you want', cost: 400, icon: '😂', needsScreenshot: true },
+  { id: 'silly_video', name: 'Silly video', description: 'Send a silly video!', cost: 750, icon: '🤪', needsScreenshot: true },
+  { id: 'voice_note', name: 'Voice Note', description: 'I send you a voice message whenever you want', cost: 800, icon: '🎤', needsScreenshot: true },
+  { id: 'nap', name: 'Nap pass', description: 'Take a nap at any point today, no questions asked.', cost: 1000, icon: '😴', needsScreenshot: true },
+  { id: 'late_night', name: 'Late Night Pass', description: 'Stay up later by 1 hour whenever you want', cost: 1000, icon: '🌙', needsScreenshot: true },
 ];
 
 export const SHOP_TITLES = [
-  { id: 't1', name: 'Consistency Queen', cost: 250 },
-  { id: 't2', name: "Duncan's Princess", cost: 250 },
-  { id: 't3', name: 'the Goodest Girl', cost: 500 },
-  { id: 't4', name: 'Motivation Master', cost: 500 },
-  { id: 't5', name: 'Point Collector', cost: 750 },
-  { id: 't6', name: 'Chronically Online', cost: 750 },
-  { id: 't7', name: 'Aura Farmer', cost: 1000 },
-  { id: 't8', name: 'Queen of Everything', cost: 5000 },
+  { id: 't1', name: 'Consistency Queen', cost: 500 },
+  { id: 't2', name: "Duncan's Princess", cost: 500 },
+  { id: 't3', name: 'the Goodest Girl', cost: 750 },
+  { id: 't4', name: 'Motivation Master', cost: 750 },
+  { id: 't5', name: 'Point Collector', cost: 1500 },
+  { id: 't6', name: 'Chronically Online', cost: 1500 },
+  { id: 't7', name: 'Aura Farmer', cost: 3000 },
+  { id: 't8', name: 'Queen of Everything', cost: 7500 },
 ];
+
+export const CHALLENGES = {
+  daily: [
+    { id: 'd_show_up', name: 'Just Showed Up 💜', description: 'Log any workout', points: 15 },
+    { id: 'd_move', name: 'Move a Little', description: '10+ min activity', points: 10 },
+    { id: 'd_cardio', name: 'Cardio Cutie', description: 'Do any cardio', points: 15 },
+    { id: 'd_hydrate', name: 'Hydration Check 💧', description: 'Hit water goal', points: 10 },
+    { id: 'd_stretch', name: 'Stretch & Relax 🌿', description: 'Stretch 5+ min', points: 10 },
+    { id: 'd_fuel', name: 'Fuel Yourself 🍓', description: 'Eat something nourishing', points: 10 },
+    { id: 'd_step', name: 'Step It Up 🚶‍♀️', description: 'Hit 8k steps', points: 20 },
+    { id: 'd_low', name: 'Low Energy Win 💤', description: 'Complete low-energy day', points: 15 },
+    { id: 'd_all', name: 'All Done Today 🎉', description: 'Complete full checklist', points: 30 },
+  ],
+  weekly: [
+    { id: 'w_3day', name: '3-Day Streak 🔥', description: 'Be active 3 days', points: 40 },
+    { id: 'w_half', name: 'Halfway There 💪', description: '4 active days', points: 60 },
+    { id: 'w_warrior', name: 'Weekly Warrior 💜', description: '5+ days active', points: 100 },
+    { id: 'w_cardiolover', name: 'Cardio Lover 🫀', description: '3 cardio sessions', points: 50 },
+    { id: 'w_balanced', name: 'Balanced Queen ⚖️', description: 'Do core, legs, arms at least once', points: 75 },
+    { id: 'w_hydrate', name: 'Hydration Week 💧', description: 'Hit water goal 4 days', points: 40 },
+  ],
+  achievements: [
+    { category: '🎯 Starter Achievements', group: [
+      { id: 'a_getin', name: 'Getting Into It ✨', description: '5 workouts total', points: 75 },
+      { id: 'a_routine', name: 'Routine Builder 🧠', description: '10 workouts', points: 100 },
+    ]},
+    { category: '🔥 Consistency Milestones', group: [
+      { id: 'a_streak3', name: 'On a Roll 🔥', description: '3-day streak', points: 50 },
+      { id: 'a_streak7', name: 'Locked In 💪', description: '7-day streak', points: 150 },
+      { id: 'a_streak14', name: 'Unstoppable 💜', description: '14-day streak', points: 300 },
+      { id: 'a_streak30', name: 'Habit Formed 🌸', description: '30-day streak', points: 600 },
+    ]},
+    { category: '💖 Effort-Based Achievements', group: [
+      { id: 'a_nevergive', name: 'Never Gave Up 🫶', description: 'Log 5 low-energy days', points: 100 },
+      { id: 'a_try', name: 'Trying Matters 💜', description: '20 partial workouts', points: 150 },
+    ]},
+    { category: '💪 Fitness Milestones', group: [
+      { id: 'a_step10', name: 'Step Queen 🚶‍♀️', description: 'Hit step goal 10 times', points: 150 },
+      { id: 'a_water10', name: 'Hydration Hero 💧', description: 'Hit water goal 10 times', points: 100 },
+      { id: 'a_core10', name: 'Core Cutie 💜', description: '10 core sessions', points: 120 },
+      { id: 'a_leg10', name: 'Leg Day Lover 🍑', description: '10 leg sessions', points: 120 },
+      { id: 'a_arm10', name: 'Arm Angel 💪', description: '10 arm sessions', points: 120 },
+    ]},
+    { category: '🌟 Big Milestones', group: [
+      { id: 'a_100', name: '100 Workouts Club 💯', description: 'Log 100 total workouts', points: 1000 },
+      { id: 'a_king', name: 'Consistency Queen 👑', description: '60 active days', points: 1200 },
+      { id: 'a_life', name: 'Lifestyle Shift 🌿', description: '90 days active', points: 2000 },
+    ]}
+  ]
+};

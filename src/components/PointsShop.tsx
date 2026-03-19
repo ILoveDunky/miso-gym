@@ -40,6 +40,11 @@ export const PointsShop: React.FC<PointsShopProps> = ({ points, onPurchase, purc
           </div>
         </div>
       </CardHeader>
+      <div className="px-5 py-3 bg-primary/5 border-b border-white/5 text-center">
+        <p className="text-[11px] font-bold text-muted-foreground italic">
+          "Spend your points on whatever makes you happy 💜 You earned it."
+        </p>
+      </div>
       <CardContent className="p-0">
         <Tabs defaultValue="rewards" className="w-full">
           <TabsList className="w-full h-12 rounded-none bg-transparent border-b">
@@ -124,6 +129,12 @@ export const PointsShop: React.FC<PointsShopProps> = ({ points, onPurchase, purc
                 ? "You've earned a nap! Go rest your beautiful eyes. 😴" 
                 : activeAlertReward?.id === 'silly_video'
                 ? "Screenshot this and text it to me for your silly video! 🤪"
+                : activeAlertReward?.id === 'voice_note'
+                ? "Screenshot this and let me know! I'll record a special voice note for you. 🎤"
+                : activeAlertReward?.id === 'cringe'
+                ? "Screenshot this! Tell me who or what to send something cringe to. 😂"
+                : activeAlertReward?.id === 'late_night'
+                ? "Screenshot this to claim your extra hour of late-night vibes! 🌙"
                 : "Screenshot this and text it to me to claim your silly selfie! I'm waiting! 💜"}
             </AlertDialogDescription>
           </AlertDialogHeader>
