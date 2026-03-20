@@ -77,6 +77,7 @@ export default function Home() {
   const [history, setHistory] = useState<Record<string, DailyLog>>({});
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [selectedLogDate, setSelectedLogDate] = useState<string | null>(null);
+  const [showHistoryDetails, setShowHistoryDetails] = useState<Record<string, boolean>>({});
   
   // Custom workout form state
   const [newPlanName, setNewPlanName] = useState('');
@@ -267,10 +268,7 @@ export default function Home() {
       tasksCompletedCount: completedTasks.length,
       tasksTotalCount: activeTasks.length,
       activePlan: isCustomPlan ? (customPlans.find(p => p.id === activePlan)?.name || 'Custom') : activePlan,
-      customTasks: [
-        ...(isCustomPlan ? customTasks.filter(t => t.planId === activePlan && completedTasks.includes(t.id)) : []),
-        ...adhocTasks.filter(t => completedTasks.includes(t.id))
-      ].map(t => ({ label: t.label, points: t.points }))
+      customTasks: activeTasks.filter(t => completedTasks.includes(t.id)).map(t => ({ label: t.label, points: t.points }))
     };
 
     setHistory(prev => ({ ...prev, [todayStr]: newLog }));
@@ -332,25 +330,38 @@ export default function Home() {
   };
 
   const isChallengeEligible = (id: string, type: 'daily' | 'weekly' | 'achievements') => {
-    const waterGoalMet = waterUnit === 'L' ? waterIntake >= 2 : waterIntake >= 67;
-    const hasCardio = completedTasks.some(tid => activeTasks.find(at => at.id === tid)?.category === 'cardio');
+    const todayStr = new Date().toDateString();
+    const todayLog = history[todayStr];
+
+    const waterGoalMet = (waterUnit === 'L' ? waterIntake >= 2 : waterIntake >= 67) || (todayLog?.water >= (waterUnit === 'L' ? 2 : 67));
+    
+    const hasCardio = completedTasks.some(tid => activeTasks.find(at => at.id === tid)?.category === 'cardio') || 
+                      todayLog?.customTasks?.some(t => {
+                        const standardTask = STANDARD_WORKOUT.find(st => st.label === t.label);
+                        if (standardTask?.category === 'cardio') return true;
+                        // For custom/adhoc, it might be harder to know category from log if we don't save it, 
+                        // but usually cardio is in the name or we can save category too.
+                        return t.label.toLowerCase().includes('cardio') || t.label.toLowerCase().includes('run') || t.label.toLowerCase().includes('jump');
+                      });
+
     const hasStretch = completedTasks.some(tid => {
         const t = activeTasks.find(at => at.id === tid);
         return t?.label.toLowerCase().includes('stretch') || (t?.category === 'habits' && t?.points === 5);
-    });
-    const hasFuel = completedTasks.some(tid => activeTasks.find(at => at.id === tid)?.label.toLowerCase().includes('nourishing'));
+    }) || todayLog?.customTasks?.some(t => t.label.toLowerCase().includes('stretch'));
+
+    const hasFuel = completedTasks.some(tid => activeTasks.find(at => at.id === tid)?.label.toLowerCase().includes('nourishing')) || 
+                    todayLog?.customTasks?.some(t => t.label.toLowerCase().includes('nourishing'));
+
     const stepTask = activeTasks.find(t => t.label.includes('8k') || t.label.includes('steps'));
-    const hasSteps = stepTask && completedTasks.includes(stepTask.id);
+    const hasSteps = (stepTask && completedTasks.includes(stepTask.id)) || todayLog?.customTasks?.some(t => t.label.toLowerCase().includes('8k') || t.label.toLowerCase().includes('steps'));
 
     if (type === 'daily') {
       switch (id) {
-        case 'd_show_up': return completedTasks.length > 0;
+        case 'd_show_up': return completedTasks.length > 0 || !!todayLog;
         case 'd_move': {
-            const totalDuration = completedTasks.reduce((sum, tid) => {
-                const t = activeTasks.find(at => at.id === tid);
-                return sum + (t?.points || 0);
-            }, 0);
-            return totalDuration >= 10;
+            const currentDuration = completedTasks.reduce((sum, tid) => sum + (activeTasks.find(at => at.id === tid)?.points || 0), 0);
+            const loggedDuration = todayLog?.customTasks?.reduce((sum, t) => sum + t.points, 0) || 0;
+            return (currentDuration + loggedDuration) >= 10;
         }
         case 'd_cardio': return hasCardio;
         case 'd_hydrate': return waterGoalMet;
@@ -659,10 +670,18 @@ export default function Home() {
                             className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all duration-300 relative group/task ${completedTasks.includes(task.id) ? 'bg-primary/5 opacity-50' : 'bg-white/5 hover:bg-white/10'}`}
                           >
                             <Checkbox checked={completedTasks.includes(task.id)} className="w-6 h-6 rounded-lg pointer-events-none" />
-                            <div className="flex-1 text-sm font-bold leading-tight">{task.label}</div>
+                            <div className="flex-1 text-sm font-bold leading-tight flex items-center gap-2">
+                              {task.label}
+                              {task.id.startsWith('adhoc_') && (
+                                <Badge variant="outline" className="text-[8px] h-4 px-1 border-primary/30 text-primary animate-pulse">✨ NEW</Badge>
+                              )}
+                            </div>
                             <Badge variant="secondary" className="bg-background/50 text-[10px] font-black text-yellow-500">+{task.points}</Badge>
-                            {isCustomPlan && (
-                              <button onClick={(e) => deleteCustomTask(task.id, e)} className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 bg-red-500 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover/task:opacity-100 transition-opacity">
+                            {(isCustomPlan || task.id.startsWith('adhoc_')) && (
+                              <button onClick={(e) => {
+                                if (task.id.startsWith('adhoc_')) { e.stopPropagation(); setAdhocTasks(prev => prev.filter(t => t.id !== task.id)); }
+                                else deleteCustomTask(task.id, e);
+                              }} className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 bg-red-500 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover/task:opacity-100 transition-opacity">
                                 <Trash2 className="w-3 h-3" />
                               </button>
                             )}
@@ -672,31 +691,6 @@ export default function Home() {
                     </Card>
                   );
                 })}
-                
-                {/* Ad-hoc tasks list (if any) */}
-                {adhocTasks.length > 0 && (
-                  <Card className="border-none shadow-xl bg-card/40 backdrop-blur-md overflow-hidden border border-dashed border-primary/20">
-                    <CardHeader className="py-2 px-5 bg-primary/10 border-b border-white/5">
-                      <CardTitle className="text-[10px] font-black uppercase tracking-[0.15em] text-primary">✨ Extra Credit</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-2 space-y-1">
-                      {adhocTasks.map(task => (
-                        <div 
-                          key={task.id} 
-                          onClick={() => toggleTask(task.id, task.points)}
-                          className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all duration-300 relative group/task ${completedTasks.includes(task.id) ? 'bg-primary/5 opacity-50' : 'bg-white/5 hover:bg-white/10'}`}
-                        >
-                          <Checkbox checked={completedTasks.includes(task.id)} className="w-6 h-6 rounded-lg pointer-events-none" />
-                          <div className="flex-1 text-sm font-bold leading-tight">{task.label}</div>
-                          <Badge variant="secondary" className="bg-background/50 text-[10px] font-black text-yellow-500">+{task.points}</Badge>
-                          <button onClick={(e) => { e.stopPropagation(); setAdhocTasks(prev => prev.filter(t => t.id !== task.id)); }} className="bg-red-500/10 text-red-500 p-1.5 rounded-full hover:bg-red-500 hover:text-white transition-colors">
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                )}
               </div>
             )}
 
@@ -951,20 +945,23 @@ export default function Home() {
           {selectedLogDate && (history[selectedLogDate] || true) ? (
             <div className="space-y-6 pt-4">
               <div className="grid grid-cols-2 gap-3">
-                 <div className="bg-white/5 p-4 rounded-3xl text-center">
-                    <p className="text-xs font-black text-muted-foreground uppercase mb-1">Workout</p>
-                    <p className="text-lg font-black text-primary leading-tight truncate">
-                      {history[selectedLogDate]?.activePlan || "Rest Day"}
-                    </p>
-                    {history[selectedLogDate]?.customTasks && history[selectedLogDate].customTasks!.length > 0 && (
-                      <p className="text-[9px] font-bold text-muted-foreground truncate opacity-80">
-                         + {history[selectedLogDate].customTasks!.map(t => t.label).join(", ")}
-                      </p>
-                    )}
-                    <p className="text-[10px] font-bold opacity-60">
-                      {history[selectedLogDate] ? `${history[selectedLogDate].tasksCompletedCount}/${history[selectedLogDate].tasksTotalCount} Done` : "Relax & Recharge 💜"}
-                    </p>
-                 </div>
+                  <div 
+                    onClick={() => setShowHistoryDetails(prev => ({ ...prev, [selectedLogDate!]: !prev[selectedLogDate!] }))}
+                    className="bg-white/5 p-4 rounded-3xl text-center cursor-pointer hover:bg-white/10 transition-colors relative overflow-hidden group/card"
+                  >
+                     <p className="text-xs font-black text-muted-foreground uppercase mb-1">Workout</p>
+                     <p className="text-lg font-black text-primary leading-tight truncate">
+                       {history[selectedLogDate]?.activePlan || "Rest Day"}
+                     </p>
+                     {history[selectedLogDate] && history[selectedLogDate].customTasks && history[selectedLogDate].customTasks!.length > 0 && (
+                       <div className="flex items-center justify-center gap-1 text-[8px] font-black text-primary mt-1">
+                         {showHistoryDetails[selectedLogDate!] ? "HIDE LIST ⬆️" : "VIEW DETAILS ⬇️"}
+                       </div>
+                     )}
+                     <p className="text-[10px] font-bold opacity-60 mt-1">
+                       {history[selectedLogDate!] ? `${history[selectedLogDate!].tasksCompletedCount}/${history[selectedLogDate!].tasksTotalCount} Done` : "Relax & Recharge 💜"}
+                     </p>
+                  </div>
                  <div className="bg-white/5 p-4 rounded-3xl text-center">
                     <p className="text-xs font-black text-muted-foreground uppercase mb-1">Earned</p>
                     <p className="text-xl font-black text-yellow-400">🪙 {history[selectedLogDate]?.points || 0}</p>
@@ -988,6 +985,21 @@ export default function Home() {
                     </Badge>
                  </div>
               </div>
+              
+              {selectedLogDate && history[selectedLogDate] && showHistoryDetails[selectedLogDate] && history[selectedLogDate].customTasks && (
+                <div className="animate-in slide-in-from-top-2 fade-in duration-300 bg-white/5 rounded-3xl p-4 space-y-2 max-h-48 overflow-y-auto border border-white/5">
+                   <p className="text-[10px] font-black uppercase tracking-widest text-primary/70 mb-2">FULL EXERCISE LIST</p>
+                   <div className="space-y-1.5">
+                     {history[selectedLogDate].customTasks.map((t, idx) => (
+                       <div key={idx} className="flex items-center gap-3 bg-white/5 p-2 rounded-xl">
+                         <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                         <span className="text-xs font-bold flex-1">{t.label}</span>
+                         <Badge variant="outline" className="text-[8px] border-primary/20 text-primary">+{t.points}</Badge>
+                       </div>
+                     ))}
+                   </div>
+                </div>
+              )}
 
               <div className="space-y-3">
                  <div className="flex items-center justify-between px-2">
