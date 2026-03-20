@@ -135,6 +135,8 @@ export const PointsShop: React.FC<PointsShopProps> = ({ points, onPurchase, purc
                 ? "Screenshot this! Tell me who or what to send something cringe to. 😂"
                 : activeAlertReward?.id === 'late_night'
                 ? "Screenshot this to claim your extra hour of late-night vibes! 🌙"
+                : activeAlertReward?.id === 'r_smut'
+                ? "Screenshot this and let me know! I'm ready to read to you 📖... I love you! 💜"
                 : "Screenshot this and text it to me to claim your silly selfie! I'm waiting! 💜"}
             </AlertDialogDescription>
           </AlertDialogHeader>

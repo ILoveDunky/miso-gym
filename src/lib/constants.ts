@@ -72,6 +72,7 @@ export const SHOP_REWARDS = [
   { id: 'voice_note', name: 'Voice Note', description: 'I send you a voice message whenever you want', cost: 800, icon: '🎤', needsScreenshot: true },
   { id: 'nap', name: 'Nap pass', description: 'Take a nap at any point today, no questions asked.', cost: 1000, icon: '😴', needsScreenshot: true },
   { id: 'late_night', name: 'Late Night Pass', description: 'Stay up later by 1 hour whenever you want', cost: 1000, icon: '🌙', needsScreenshot: true },
+  { id: 'r_smut', name: 'Smut Reading', description: 'Ill read smut to you until you fall asleep... 💜', cost: 750, icon: '📖', needsScreenshot: true },
 ];
 
 export const SHOP_TITLES = [

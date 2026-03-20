@@ -108,6 +108,9 @@ export default function Home() {
   const [weeklyPlansDone, setWeeklyPlansDone] = useState<string[]>([]);
   const [weeklyWaterGoalsHit, setWeeklyWaterGoalsHit] = useState(0);
 
+  // Ad-hoc tasks (temporary for the current session)
+  const [adhocTasks, setAdhocTasks] = useState<any[]>([]);
+
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const { toast } = useToast();
@@ -192,9 +195,12 @@ export default function Home() {
 
   const isCustomPlan = customPlans.some(p => p.id === activePlan);
   
-  const activeTasks = isCustomPlan 
-    ? customTasks.filter(t => t.planId === activePlan)
-    : (isLowEnergy ? LOW_ENERGY_WORKOUT : PLAN_MAP[activePlan] || STANDARD_WORKOUT);
+  const activeTasks = [
+    ...(isCustomPlan 
+      ? customTasks.filter(t => t.planId === activePlan)
+      : (isLowEnergy ? LOW_ENERGY_WORKOUT : PLAN_MAP[activePlan] || STANDARD_WORKOUT)),
+    ...adhocTasks
+  ];
     
   const activeTitle = SHOP_TITLES.find(t => t.id === activeTitleId)?.name || 'Consistency Queen';
   
@@ -206,7 +212,7 @@ export default function Home() {
 
   const toggleTask = (id: string, taskPoints: number) => {
     const isAdding = !completedTasks.includes(id);
-    const isCustom = id.startsWith('cw_');
+    const isCustom = id.startsWith('cw_') || id.startsWith('adhoc_');
     
     let actualPointsAdded = taskPoints;
 
@@ -261,7 +267,10 @@ export default function Home() {
       tasksCompletedCount: completedTasks.length,
       tasksTotalCount: activeTasks.length,
       activePlan: isCustomPlan ? (customPlans.find(p => p.id === activePlan)?.name || 'Custom') : activePlan,
-      customTasks: isCustomPlan ? customTasks.filter(t => t.planId === activePlan && completedTasks.includes(t.id)).map(t => ({ label: t.label, points: t.points })) : []
+      customTasks: [
+        ...(isCustomPlan ? customTasks.filter(t => t.planId === activePlan && completedTasks.includes(t.id)) : []),
+        ...adhocTasks.filter(t => completedTasks.includes(t.id))
+      ].map(t => ({ label: t.label, points: t.points }))
     };
 
     setHistory(prev => ({ ...prev, [todayStr]: newLog }));
@@ -301,6 +310,7 @@ export default function Home() {
     setPoints(p => p + bonus);
     setStreak(newStreak);
     setCompletedTasks([]);
+    setAdhocTasks([]);
     setWaterIntake(0);
     setShowConfetti(true);
     setShowSuccessModal(true);
@@ -417,6 +427,21 @@ export default function Home() {
     setCustomTasks(prev => [...prev, newCw]);
     setCwName('');
     toast({ title: "Saved! ✨", description: `Added ${newCw.label} to your custom plan.`});
+  };
+
+  const createAdhocTask = () => {
+    if (!cwName.trim()) return toast({title: "Oops!", description: "Please enter a name for your extra exercise.", variant: "destructive"});
+    
+    const newAdhoc = {
+      id: `adhoc_${Date.now()}`,
+      label: cwName.trim(),
+      category: cwCategory,
+      points: cwDuration,
+    };
+    
+    setAdhocTasks(prev => [...prev, newAdhoc]);
+    setCwName('');
+    toast({ title: "Added! 💜", description: `Added extra exercise: ${newAdhoc.label}`});
   };
 
   const deleteCustomTask = (id: string, e?: React.MouseEvent) => {
@@ -622,7 +647,7 @@ export default function Home() {
                   const catTasks = activeTasks.filter(t => t.category === cat);
                   if (catTasks.length === 0) return null;
                   return (
-                    <Card key={cat} className="border-none shadow-xl bg-card/40 backdrop-blur-md overflow-hidden relative group">
+                    <Card key={cat} className="border-none shadow-xl bg-card/40 backdrop-blur-md overflow-hidden relative group font-sans">
                       <CardHeader className="py-4 px-5 bg-primary/5 border-b border-white/5">
                         <CardTitle className="text-sm font-black uppercase tracking-[0.15em]">{titles[cat]}</CardTitle>
                       </CardHeader>
@@ -637,7 +662,9 @@ export default function Home() {
                             <div className="flex-1 text-sm font-bold leading-tight">{task.label}</div>
                             <Badge variant="secondary" className="bg-background/50 text-[10px] font-black text-yellow-500">+{task.points}</Badge>
                             {isCustomPlan && (
-                              <button onClick={(e) => deleteCustomTask(task.id, e)} className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 bg-red-500 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover/task:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
+                              <button onClick={(e) => deleteCustomTask(task.id, e)} className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 bg-red-500 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover/task:opacity-100 transition-opacity">
+                                <Trash2 className="w-3 h-3" />
+                              </button>
                             )}
                           </div>
                         ))}
@@ -645,14 +672,41 @@ export default function Home() {
                     </Card>
                   );
                 })}
+                
+                {/* Ad-hoc tasks list (if any) */}
+                {adhocTasks.length > 0 && (
+                  <Card className="border-none shadow-xl bg-card/40 backdrop-blur-md overflow-hidden border border-dashed border-primary/20">
+                    <CardHeader className="py-2 px-5 bg-primary/10 border-b border-white/5">
+                      <CardTitle className="text-[10px] font-black uppercase tracking-[0.15em] text-primary">✨ Extra Credit</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-2 space-y-1">
+                      {adhocTasks.map(task => (
+                        <div 
+                          key={task.id} 
+                          onClick={() => toggleTask(task.id, task.points)}
+                          className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all duration-300 relative group/task ${completedTasks.includes(task.id) ? 'bg-primary/5 opacity-50' : 'bg-white/5 hover:bg-white/10'}`}
+                        >
+                          <Checkbox checked={completedTasks.includes(task.id)} className="w-6 h-6 rounded-lg pointer-events-none" />
+                          <div className="flex-1 text-sm font-bold leading-tight">{task.label}</div>
+                          <Badge variant="secondary" className="bg-background/50 text-[10px] font-black text-yellow-500">+{task.points}</Badge>
+                          <button onClick={(e) => { e.stopPropagation(); setAdhocTasks(prev => prev.filter(t => t.id !== task.id)); }} className="bg-red-500/10 text-red-500 p-1.5 rounded-full hover:bg-red-500 hover:text-white transition-colors">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
 
-            {isCustomPlan && !isCreatingPlan && (
+            {!isCreatingPlan && (
               <div className="pt-6">
-                <Card className="border-none shadow-xl bg-card/40 backdrop-blur-md overflow-hidden">
+                <Card className="border-none shadow-xl bg-card/40 backdrop-blur-md overflow-hidden ring-1 ring-primary/20">
                    <CardHeader className="py-4 px-5 bg-primary/20 border-b border-primary/20">
-                     <CardTitle className="text-sm font-black flex items-center gap-2"><Plus className="w-4 h-4" /> ADD TO THIS PLAN</CardTitle>
+                     <CardTitle className="text-sm font-black flex items-center gap-2 text-primary">
+                       <Plus className="w-4 h-4" /> {isCustomPlan ? 'ADD TO THIS PLAN' : 'ADD EXTRA EXERCISE'}
+                     </CardTitle>
                    </CardHeader>
                    <CardContent className="p-5 space-y-4">
                      <div className="space-y-1">
@@ -662,18 +716,21 @@ export default function Home() {
                      <div className="grid grid-cols-2 gap-4">
                        <div className="space-y-1">
                          <Label className="text-xs font-bold text-muted-foreground uppercase opacity-80">Category</Label>
-                         <select value={cwCategory} onChange={e => setCwCategory(e.target.value)} className="w-full h-10 px-3 rounded-md bg-background/50 border border-white/10 text-sm">
+                         <select value={cwCategory} onChange={e => setCwCategory(e.target.value)} className="w-full h-10 px-3 rounded-md bg-background/50 border border-white/10 text-sm appearance-none cursor-pointer">
                            <option value="warmup">Warm Up</option><option value="cardio">Cardio</option><option value="toning">Toning / Core / Legs</option><option value="arms">Arms</option><option value="habits">Habits</option>
                          </select>
                        </div>
                        <div className="space-y-1">
                          <Label className="text-xs font-bold text-muted-foreground uppercase opacity-80">Time Spent</Label>
-                         <select value={cwDuration} onChange={e => setCwDuration(Number(e.target.value))} className="w-full h-10 px-3 rounded-md bg-background/50 border border-white/10 text-sm">
+                         <select value={cwDuration} onChange={e => setCwDuration(Number(e.target.value))} className="w-full h-10 px-3 rounded-md bg-background/50 border border-white/10 text-sm appearance-none cursor-pointer">
                            <option value={5}>5 mins (+5)</option><option value={10}>10 mins (+10)</option><option value={15}>15 mins (+15)</option><option value={20}>20 mins (+20)</option><option value={30}>30 mins (+30)</option><option value={45}>45 mins (+45)</option><option value={60}>60 mins (+60)</option>
                          </select>
                        </div>
                      </div>
-                     <Button onClick={createCustomTask} className="w-full font-black tracking-widest mt-2 h-12 rounded-xl">ADD EXERCISE</Button>
+                     <Button onClick={isCustomPlan ? createCustomTask : createAdhocTask} className="w-full font-black tracking-widest mt-2 h-12 rounded-xl bg-primary hover:bg-primary/90">
+                       {isCustomPlan ? 'SAVE TO PLAN 💾' : 'ADD TO TODAY ✨'}
+                     </Button>
+                     {!isCustomPlan && <p className="text-[9px] text-center text-muted-foreground italic">Note: Extra exercises reset to default tomorrow! 💜</p>}
                    </CardContent>
                 </Card>
               </div>
@@ -899,6 +956,11 @@ export default function Home() {
                     <p className="text-lg font-black text-primary leading-tight truncate">
                       {history[selectedLogDate]?.activePlan || "Rest Day"}
                     </p>
+                    {history[selectedLogDate]?.customTasks && history[selectedLogDate].customTasks!.length > 0 && (
+                      <p className="text-[9px] font-bold text-muted-foreground truncate opacity-80">
+                         + {history[selectedLogDate].customTasks!.map(t => t.label).join(", ")}
+                      </p>
+                    )}
                     <p className="text-[10px] font-bold opacity-60">
                       {history[selectedLogDate] ? `${history[selectedLogDate].tasksCompletedCount}/${history[selectedLogDate].tasksTotalCount} Done` : "Relax & Recharge 💜"}
                     </p>
